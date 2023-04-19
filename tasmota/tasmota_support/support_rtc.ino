@@ -205,6 +205,17 @@ String GetDateAndTime(uint8_t time_type) {
   return dt;  // 2017-03-07T11:08:02-07:00
 }
 
+String getUtcNow() {
+  char ms[10];
+  snprintf_P(ms, sizeof(ms), PSTR("%03d"), RtcMillis());
+
+  // using strings to avoid working with large integers
+  String utc_ms(Rtc.utc_time);
+  utc_ms += ms;
+
+  return utc_ms;
+}
+
 uint32_t UpTime(void) {
   if (Rtc.restart_time) {
     return Rtc.utc_time - Rtc.restart_time;
