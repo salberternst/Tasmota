@@ -35,10 +35,7 @@
 #undef ENERGY_MAX_PHASES
 #define ENERGY_MAX_PHASES      3
 
-#define MAX_MEASUREMENTS       300
-
 #include <Ticker.h>
-#include <InfluxDbClient.h>
 
 #define D_CMND_POWERCAL "PowerCal"
 #define D_CMND_VOLTAGECAL "VoltageCal"
@@ -145,15 +142,6 @@ typedef struct {
 tEnergy *Energy = nullptr;
 
 Ticker ticker_energy;
-
-#define INFLUXDB_URL_2 "http://192.168.178.22:8086"
-#define INFLUXDB_TOKEN_2 "cYHQ7Bf5oLwGgrpp/VWIJwUxELWDYvQ/xERGprETaMNkd2LZaKqdCFupilZlePU9PalfHeldp/4dR4WV32rku2m0VkOadtn2NQpd5dflZDZFj7GtpuqdyA=="
-#define INFLUXDB_ORG_2 "home-assistant"
-#define INFLUXDB_BUCKET_2 "home-assistant-data"
-#define MAX_BATCH_SIZE 20
-#define WRITE_BUFFER_SIZE 60
-
-InfluxDBClient client(INFLUXDB_URL_2, INFLUXDB_ORG_2, INFLUXDB_BUCKET_2, INFLUXDB_TOKEN_2);
 
 /********************************************************************************************/
 
@@ -644,18 +632,6 @@ void EnergyMqttShow(void) {
   MqttPublishTeleSensor();
 }
 #endif  // USE_ENERGY_MARGIN_DETECTION
-
-void EnergyEvery250ms(void) {
-  Point measurement("energy");
-  measurement.addField("current", Energy->current[0]);
-  measurement.addField("voltage", Energy->voltage[0]);
-  measurement.addField("active_power", Energy->active_power[0]);
-  measurement.setTime(getUtcNow().c_str());
-
-  AddLog(LOG_LEVEL_INFO, PSTR("Influxdb: %s"), client.pointToLineProtocol(measurement).c_str());
-
-  client.writePoint(measurement);
-}
 
 void EnergyEverySecond(void) {
   // Overtemp check
@@ -1169,8 +1145,6 @@ void EnergyDrvInit(void) {
   if (TasmotaGlobal.energy_driver) {
     AddLog(LOG_LEVEL_INFO, PSTR("NRG: Init driver %d"), TasmotaGlobal.energy_driver);
   }
-
-  client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS).batchSize(MAX_BATCH_SIZE).bufferSize(WRITE_BUFFER_SIZE));
 }
 
 void EnergySnsInit(void)
@@ -1508,9 +1482,6 @@ bool Xsns03(uint32_t function)
 
   if (TasmotaGlobal.energy_driver) {
     switch (function) {
-      case FUNC_EVERY_250_MSECOND:
-        EnergyEvery250ms();
-        break;
       case FUNC_EVERY_SECOND:
         EnergyEverySecond();
         break;
