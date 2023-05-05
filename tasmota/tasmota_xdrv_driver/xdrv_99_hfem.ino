@@ -1,17 +1,19 @@
-// #ifdef ESP8266
-// #ifdef USE_ENERGY_SENSOR
+#ifdef ESP8266
+#ifdef USE_ENERGY_SENSOR
 
 #define XDRV_99                99
 #define XSNS_99                99
 
 #define WEB_HANDLE_HFEM "hfem"
 
-#define HFEM_INFLUXDB_URL               "http://influxdb.foresight-next.dfki.dev"
-#define HFEM_INFLUXDB_TOKEN             "bN1GKYEG1ATEmZuloS7HZKY_EFLcRI8eY5QxUxaWybim0Nnzq6HAsABuLUatpHusbkzYQLUiRCCxdC9Ld183VQ=="
-#define HFEM_INFLUXDB_ORG               "influxdata"
-#define HFEM_INFLUXDB_BUCKET            "plugs-testing"
-#define HFEM_INFLUXDB_MAX_BATCH_SIZE    20
-#define HFEM_INFLUXDB_WRITE_BUFFER_SIZE 60
+// set the following in user_config_override.h
+// #define HFEM_INFLUXDB_URL
+// #define HFEM_INFLUXDB_TOKEN
+// #define HFEM_INFLUXDB_ORG
+// #define HFEM_INFLUXDB_BUCKET
+
+#define HFEM_INFLUXDB_MAX_BATCH_SIZE    10
+#define HFEM_INFLUXDB_WRITE_BUFFER_SIZE 40
 
 #define HFEM_METADATA_ID           "id"
 #define HFEM_METADATA_NAME         "name"
@@ -306,5 +308,5 @@ bool Xsns99(uint32_t function)
   return result;
 }
 
-// #endif  // USE_ENERGY_SENSOR
-// #endif  // ESP8266
+#endif  // USE_ENERGY_SENSOR
+#endif  // ESP8266
