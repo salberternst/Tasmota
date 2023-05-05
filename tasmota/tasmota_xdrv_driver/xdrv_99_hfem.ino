@@ -37,12 +37,7 @@
 #include <InfluxDbClient.h>
 
 struct HfemSettings {
-  String metadata_name;
-  String metadata_model;
-  String metadata_manufacturer;
-  String metadata_category;
-  String metadata_description;
-  String metadata_location;
+  uint32_t recording;
 } HfemSettings;
 
 const char kHfemCommands[] PROGMEM = D_PRFX_HFEM "|" 
@@ -102,7 +97,7 @@ void HfemSaveSettings(void) {
   ExecuteWebCommand((char*)cmnd.c_str());
 }
 
-const char* getHfemSetting(String &s) {
+const char* getHfemSetting(const String &s) {
   if(s.isEmpty()) {
     return "<p style=\"color:rgb(255,0,0);margin: 0;\">not set</p>";
   }
@@ -122,35 +117,27 @@ void HandleHfemConfiguration(void)
   WSContentStart_P(PSTR("Start Recording"));
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_HFEM,
-    HfemSettings.metadata_name.c_str(), 
-    HfemSettings.metadata_model.c_str(), 
-    HfemSettings.metadata_manufacturer.c_str(),
-    HfemSettings.metadata_category.c_str(), 
-    HfemSettings.metadata_description.c_str(), 
-    HfemSettings.metadata_location.c_str());
+    SettingsText(SET_HFEM_METADATA_NAME), 
+    SettingsText(SET_HFEM_METADATA_MODEL), 
+    SettingsText(SET_HFEM_METADATA_MANUFACTURER),
+    SettingsText(SET_HFEM_METADATA_CATEGORY), 
+    SettingsText(SET_HFEM_METADATA_DESCRIPTION), 
+    SettingsText(SET_HFEM_METADATA_LOCATION));
   WSContentSend_P(HTTP_FORM_END);
   WSContentSpaceButton(BUTTON_MAIN);
   WSContentStop();
 }
 
-bool isMetadataSet(void) {
-  return !HfemSettings.metadata_name.isEmpty() 
-    && !HfemSettings.metadata_model.isEmpty() 
-    && !HfemSettings.metadata_manufacturer.isEmpty()
-    && !HfemSettings.metadata_description.isEmpty()
-    && !HfemSettings.metadata_location.isEmpty();
-}
-
 void HfEnergyEvery250ms(void) {
-  if(Settings->flag6.spare31 && isMetadataSet()) {
+  if(HfemSettings.recording > 0) {
     Point measurement("energy");
     measurement.addTag(HFEM_METADATA_ID, WiFi.macAddress());
-    measurement.addTag(HFEM_METADATA_NAME, HfemSettings.metadata_name);
-    measurement.addTag(HFEM_METADATA_MODEL, HfemSettings.metadata_model);
-    measurement.addTag(HFEM_METADATA_MANUFACTURER, HfemSettings.metadata_manufacturer);
-    measurement.addTag(HFEM_METADATA_CATEGORY, HfemSettings.metadata_category);
-    measurement.addTag(HFEM_METADATA_DESCRIPTION, HfemSettings.metadata_description);
-    measurement.addTag(HFEM_METADATA_LOCATION, HfemSettings.metadata_location);
+    measurement.addTag(HFEM_METADATA_NAME, SettingsText(SET_HFEM_METADATA_NAME));
+    measurement.addTag(HFEM_METADATA_MODEL, SettingsText(SET_HFEM_METADATA_MODEL));
+    measurement.addTag(HFEM_METADATA_MANUFACTURER, SettingsText(SET_HFEM_METADATA_MANUFACTURER));
+    measurement.addTag(HFEM_METADATA_CATEGORY, SettingsText(SET_HFEM_METADATA_CATEGORY));
+    measurement.addTag(HFEM_METADATA_DESCRIPTION, SettingsText(SET_HFEM_METADATA_DESCRIPTION));
+    measurement.addTag(HFEM_METADATA_LOCATION, SettingsText(SET_HFEM_METADATA_LOCATION));
     measurement.addField("current", Energy->current[0]);
     measurement.addField("voltage", Energy->voltage[0]);
     measurement.addField("active_power", Energy->active_power[0]);
@@ -163,15 +150,15 @@ void HfEnergyEvery250ms(void) {
 }
 
 void HfEnergyShow(void) {
-  String recording = Settings->flag6.spare31 && isMetadataSet() ? "Yes" : "No";
+  String recording = HfemSettings.recording > 0 ? "Yes" : "No";
   WSContentSend_PD(HTTP_SNS_HFEM,
     recording.c_str(),
-    getHfemSetting(HfemSettings.metadata_name),
-    getHfemSetting(HfemSettings.metadata_model),
-    getHfemSetting(HfemSettings.metadata_manufacturer),
-    getHfemSetting(HfemSettings.metadata_category),
-    getHfemSetting(HfemSettings.metadata_description),
-    getHfemSetting(HfemSettings.metadata_location)
+    getHfemSetting(SettingsText(SET_HFEM_METADATA_NAME)),
+    getHfemSetting(SettingsText(SET_HFEM_METADATA_MODEL)),
+    getHfemSetting(SettingsText(SET_HFEM_METADATA_MANUFACTURER)),
+    getHfemSetting(SettingsText(SET_HFEM_METADATA_CATEGORY)),
+    getHfemSetting(SettingsText(SET_HFEM_METADATA_DESCRIPTION)),
+    getHfemSetting(SettingsText(SET_HFEM_METADATA_LOCATION))
   );
 }
 
@@ -181,51 +168,51 @@ void HfEnergyShow(void) {
 
 void CmndHfemMetadataName(void) {
   if (XdrvMailbox.data_len > 0) {
-    HfemSettings.metadata_name = XdrvMailbox.data;
+    SettingsUpdateText(SET_HFEM_METADATA_NAME, XdrvMailbox.data);
   }
-  ResponseCmndChar(HfemSettings.metadata_name.c_str());
+  ResponseCmndChar(SettingsText(SET_HFEM_METADATA_NAME));
 }
 
 void CmndHfemMetadataModel(void) {
   if (XdrvMailbox.data_len > 0) {
-    HfemSettings.metadata_model = XdrvMailbox.data;
+    SettingsUpdateText(SET_HFEM_METADATA_MODEL, XdrvMailbox.data);
   }
-  ResponseCmndChar(HfemSettings.metadata_model.c_str());
+  ResponseCmndChar(SettingsText(SET_HFEM_METADATA_MODEL));
 }
 
 void CmndHfemMetadataManufacturer(void) {
   if (XdrvMailbox.data_len > 0) {
-    HfemSettings.metadata_manufacturer = XdrvMailbox.data;
+    SettingsUpdateText(SET_HFEM_METADATA_MANUFACTURER, XdrvMailbox.data);
   }
-  ResponseCmndChar(HfemSettings.metadata_manufacturer.c_str());
+  ResponseCmndChar(SettingsText(SET_HFEM_METADATA_MANUFACTURER));
 }
 
 void CmndHfemMetadataCategory(void) {
   if (XdrvMailbox.data_len > 0) {
-    HfemSettings.metadata_category = XdrvMailbox.data;
+    SettingsUpdateText(SET_HFEM_METADATA_CATEGORY, XdrvMailbox.data);
   }
-  ResponseCmndChar(HfemSettings.metadata_category.c_str());
+  ResponseCmndChar(SettingsText(SET_HFEM_METADATA_CATEGORY));
 }
 
 void CmndHfemMetadataDescription(void) {
   if (XdrvMailbox.data_len > 0) {
-    HfemSettings.metadata_description = XdrvMailbox.data;
+    SettingsUpdateText(SET_HFEM_METADATA_DESCRIPTION, XdrvMailbox.data);
   }
-  ResponseCmndChar(HfemSettings.metadata_description.c_str());
+  ResponseCmndChar(SettingsText(SET_HFEM_METADATA_DESCRIPTION));
 }
 
 void CmndHfemMetadataLocation(void) {
   if (XdrvMailbox.data_len > 0) {
-    HfemSettings.metadata_location = XdrvMailbox.data;
+    SettingsUpdateText(SET_HFEM_METADATA_LOCATION, XdrvMailbox.data);
   }
-  ResponseCmndChar(HfemSettings.metadata_location.c_str());
+  ResponseCmndChar(SettingsText(SET_HFEM_METADATA_LOCATION));
 }
 
 void CmndHfemEnabled(void) {
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 1)) {
-    Settings->flag6.spare31 = XdrvMailbox.payload;
+    HfemSettings.recording = XdrvMailbox.payload;
   }
-  ResponseCmndChar(GetStateText(Settings->flag6.spare31));
+  ResponseCmndNumber(HfemSettings.recording);
 }
 
 void HfEnergyDrvInit(void) {
