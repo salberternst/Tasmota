@@ -4,7 +4,8 @@
 #define XDRV_99                99
 #define XSNS_99                99
 
-#define WEB_HANDLE_HFEM "hfem"
+#define WEB_HANDLE_HFEM_START_RECORDING "hfem_start"
+#define WEB_HANDLE_HFEM_STOP_RECORDING "hfem_stop"
 
 // set the following in user_config_override.h
 // #define HFEM_INFLUXDB_URL
@@ -24,7 +25,7 @@
 #define HFEM_METADATA_LOCATION     "location"
 
 #define D_PRFX_HFEM                       "Hfem"
-#define D_CMND_HFEM_ENABLED               "Enabled"
+#define D_CMND_HFEM_RECORDING             "Recording"
 #define D_CMND_HFEM_METADATA_NAME         "MetadataName"
 #define D_CMND_HFEM_METADATA_MODEL        "MetadataModel"
 #define D_CMND_HFEM_METADATA_MANUFACTURER "MetadataManufacturer"
@@ -33,6 +34,7 @@
 #define D_CMND_HFEM_METADATA_LOCATION     "MetadataLocation"
 
 #define D_HFEM_START_RECORDING "Start Recording"
+#define D_HFEM_STOP_RECORDING  "Stop Recording"
 
 #include <InfluxDbClient.h>
 
@@ -41,7 +43,7 @@ struct HfemSettings {
 } HfemSettings;
 
 const char kHfemCommands[] PROGMEM = D_PRFX_HFEM "|" 
-  D_CMND_HFEM_ENABLED "|"
+  D_CMND_HFEM_RECORDING "|"
   D_CMND_HFEM_METADATA_NAME "|"
   D_CMND_HFEM_METADATA_MODEL "|"
   D_CMND_HFEM_METADATA_MANUFACTURER "|"
@@ -50,7 +52,7 @@ const char kHfemCommands[] PROGMEM = D_PRFX_HFEM "|"
   D_CMND_HFEM_METADATA_LOCATION;
 
 void (* const HfemCommand[])(void) PROGMEM = {
-  &CmndHfemEnabled,
+  &CmndHfemRecoding,
   &CmndHfemMetadataName,
   &CmndHfemMetadataModel,
   &CmndHfemMetadataManufacturer,
@@ -59,8 +61,10 @@ void (* const HfemCommand[])(void) PROGMEM = {
   &CmndHfemMetadataLocation
 };
 
-const char HTTP_BTN_MENU_HFEM[] PROGMEM =
-  "<p><form action='" WEB_HANDLE_HFEM "' method='get'><button>" D_HFEM_START_RECORDING "</button></form></p>";
+const char HTTP_BTN_MENU_HFEM_START_RECORDING[] PROGMEM =
+  "<p><form action='" WEB_HANDLE_HFEM_START_RECORDING "' method='get'><button>" D_HFEM_START_RECORDING "</button></form></p>";
+const char HTTP_BTN_MENU_HFEM_STOP_RECORDING[] PROGMEM =
+  "<p><form action='" WEB_HANDLE_HFEM_STOP_RECORDING "' method='get'><button>" D_HFEM_STOP_RECORDING "</button></form></p>";
 
 const char HTTP_SNS_HFEM[] PROGMEM =
   "{s}HFEM{m}{e}"
@@ -75,7 +79,7 @@ const char HTTP_SNS_HFEM[] PROGMEM =
 
 const char HTTP_FORM_HFEM[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_HFEM_START_RECORDING "&nbsp;</b></legend>"
-  "<form method='get' action='" WEB_HANDLE_HFEM "'>"
+  "<form method='get' action='" WEB_HANDLE_HFEM_START_RECORDING "'>"
   "<p><b>Name:</b><br><input id='md_name' value=\"%s\" required></p>"
   "<p><b>Model:</b><br><input id='md_model' value=\"%s\" required></p>"
   "<p><b>Manufacturer:</b><br><input id='md_manufacturer' value=\"%s\" required></p>"
@@ -104,17 +108,18 @@ const char* getHfemSetting(const String &s) {
   return s.c_str();
 }
 
-void HandleHfemConfiguration(void)
+void HandleHfemStartRecording(void)
 {
   if (!HttpCheckPriviledgedAccess()) { return; }
 
   if (Webserver->hasArg(F("save"))) {
+    HfemSettings.recording = 1;
     HfemSaveSettings();
     HandleRoot();
     return;
   }
 
-  WSContentStart_P(PSTR("Start Recording"));
+  WSContentStart_P(PSTR(D_HFEM_START_RECORDING));
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_HFEM,
     SettingsText(SET_HFEM_METADATA_NAME), 
@@ -126,6 +131,14 @@ void HandleHfemConfiguration(void)
   WSContentSend_P(HTTP_FORM_END);
   WSContentSpaceButton(BUTTON_MAIN);
   WSContentStop();
+}
+
+void HandleHfemStopRecording(void)
+{
+  if (!HttpCheckPriviledgedAccess()) { return; }
+
+  HfemSettings.recording = 0;
+  HandleRoot();
 }
 
 void HfEnergyEvery250ms(void) {
@@ -208,7 +221,7 @@ void CmndHfemMetadataLocation(void) {
   ResponseCmndChar(SettingsText(SET_HFEM_METADATA_LOCATION));
 }
 
-void CmndHfemEnabled(void) {
+void CmndHfemRecoding(void) {
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 1)) {
     HfemSettings.recording = XdrvMailbox.payload;
   }
@@ -256,10 +269,15 @@ bool Xdrv99(uint32_t function)
         result = XnrgCall(FUNC_SERIAL);
         break;
       case FUNC_WEB_ADD_MAIN_BUTTON:
-        WSContentSend_P(HTTP_BTN_MENU_HFEM);
+        if(HfemSettings.recording > 0) {
+          WSContentSend_P(HTTP_BTN_MENU_HFEM_STOP_RECORDING);
+        } else {
+          WSContentSend_P(HTTP_BTN_MENU_HFEM_START_RECORDING);
+        }
         break;
       case FUNC_WEB_ADD_HANDLER:
-        WebServer_on(PSTR("/" WEB_HANDLE_HFEM), HandleHfemConfiguration);
+        WebServer_on(PSTR("/" WEB_HANDLE_HFEM_STOP_RECORDING), HandleHfemStopRecording);
+        WebServer_on(PSTR("/" WEB_HANDLE_HFEM_START_RECORDING), HandleHfemStartRecording);
         break;
       case FUNC_COMMAND:
         result = DecodeCommand(kHfemCommands, HfemCommand);
